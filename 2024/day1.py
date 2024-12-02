@@ -54,7 +54,7 @@ def calculate_similarity_score(left_values: list[float], right_values: list[floa
 
 
 if __name__ == '__main__':
-    left_list, right_list = parse_lists('day1.txt')
+    left_list, right_list = parse_lists('data/day1.txt')
 
     total_distance = find_total_distance(left_list, right_list)
     print(f'part 1: {total_distance}')
