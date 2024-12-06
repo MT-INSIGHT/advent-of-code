@@ -1,3 +1,7 @@
+import time
+from typing import Optional
+
+
 def parse_grid(filename: str) -> list[list[str]]:
     """
     Parse the input into 2d grid
@@ -104,17 +108,17 @@ def find_position_after_exit(grid: list[list[str]],
         return current_row, -1
 
 
-def part1(grid: list[list[str]], obstacles: list[tuple[int, int]],
-          starting_position: tuple[int, int]) -> tuple[list[tuple[int, int, str]], list[tuple[int, int, str]]]:
+def find_path(grid: list[list[str]], obstacles: list[tuple[int, int]],
+              starting_position: tuple[int, int]) -> Optional[list[tuple[int, int]]]:
     """
-    Count positions visited in the predicted path
+    Find positions visited in the predicted path
+    Return None when a loop is found
     """
     next_directions = {'N': 'E', 'E': 'S', 'S': 'W', 'W': 'N'}
+    current_row, current_col = starting_position
     current_direction = 'N'
     exited = False
-    current_row, current_col = starting_position
     unique_positions_visited = {(current_row, current_col, current_direction)}
-    unique_obstacles_visited = set()
 
     while not exited:
         next_obstacle = find_next_obstacle(current_row, current_col, current_direction, obstacles)
@@ -125,19 +129,21 @@ def part1(grid: list[list[str]], obstacles: list[tuple[int, int]],
             exited = True
         else:
             next_obstacle_row, next_obstacle_col = next_obstacle
-            unique_obstacles_visited.add((next_obstacle_row, next_obstacle_col, current_direction))
 
         positions_visited = find_positions_visited(current_row, current_col,
                                                    next_obstacle_row, next_obstacle_col,
                                                    current_direction)
-        unique_positions_visited = unique_positions_visited.union(positions_visited)
+        if unique_positions_visited.intersection(positions_visited):
+            return None
+        else:
+            unique_positions_visited = unique_positions_visited.union(positions_visited)
 
-        current_row, current_col = find_next_position(next_obstacle_row, next_obstacle_col, current_direction)
-        current_direction = next_directions[current_direction]
+            current_row, current_col = find_next_position(next_obstacle_row, next_obstacle_col, current_direction)
+            current_direction = next_directions[current_direction]
 
     unique_places_visited = {(row, col) for (row, col, direction) in unique_positions_visited}
 
-    return len(unique_places_visited)
+    return unique_places_visited
 
 def find_loop_obstacle_position(new_pivot_row: int, new_pivot_col: int, current_direction: str) -> tuple[int, int]:
     """
@@ -173,53 +179,28 @@ def find_possible_loop_obstacles(positions_visited: set[tuple[int, int, str]],
     return possible_loop_obstacles
 
 def part2(grid: list[list[int]], obstacles: list[tuple[int, int]],
-          starting_position: tuple[int, int]) -> set[tuple[int, int]]:
+          starting_position: tuple[int, int], predicted_path: list[tuple[int, int]]) -> set[tuple[int, int]]:
     """
-    Count positions visited in the predicted path
+    Count positions where placing an obstacle causes a loop
     """
-    next_directions = {'N': 'E', 'E': 'S', 'S': 'W', 'W': 'N'}
-    current_direction = 'N'
-    exited = False
-    current_row, current_col = starting_position
-    unique_positions_visited = {(current_row, current_col, current_direction)}
-    unique_loop_obstacles = set()
-    unique_obstacles_visited = set()
+    loop_possibilities = 0
+    for position in predicted_path:
+        if position != starting_position:
+            if find_path(grid, obstacles + [position], starting_position) is None:
+                loop_possibilities += 1
 
-    while not exited:
-        next_obstacle = find_next_obstacle(current_row, current_col, current_direction, obstacles)
-
-        if next_obstacle is None:  # Escaped
-            after_exit_row, after_exit_col = find_position_after_exit(grid, current_row, current_col, current_direction)
-            next_obstacle_row, next_obstacle_col = after_exit_row, after_exit_col
-            exited = True
-        else:
-            next_obstacle_row, next_obstacle_col = next_obstacle
-            unique_obstacles_visited.add((next_obstacle_row, next_obstacle_col, current_direction))
-
-        positions_visited = find_positions_visited(current_row, current_col,
-                                                   next_obstacle_row, next_obstacle_col,
-                                                   current_direction)
-        unique_positions_visited = unique_positions_visited.union(positions_visited)
-        next_direction = next_directions[current_direction]
-        loop_obstacles_visited = find_possible_loop_obstacles(positions_visited,
-                                                              current_direction, next_direction,
-                                                              obstacles, unique_obstacles_visited)
-        unique_loop_obstacles = unique_loop_obstacles.union(loop_obstacles_visited)
-
-        current_row, current_col = find_next_position(next_obstacle_row, next_obstacle_col, current_direction)
-        current_direction = next_direction
-
-    return len(unique_loop_obstacles)
+    return loop_possibilities
 
 if __name__ == '__main__':
     grid = parse_grid('data/day6.txt')
     obstacles, starting_position = find_obstacles_and_starting_position(grid)
 
-    part1 = part1(grid, obstacles, starting_position)
-    print(f'part 1: {part1}')
+    predicted_path = find_path(grid, obstacles, starting_position)
+    print(f'part 1: {len(predicted_path)}')
 
-# (6, 3), (7, 6), (7, 7), (8, 1), (8, 3), (9, 7)
-#     part_2 = part2(unique_positions_visited, starting_position, obstacles, unique_obstacles_visited)
-    part2 = part2(grid, obstacles, starting_position)
+    print(f"\nStart time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}")
+    part2 = part2(grid, obstacles, starting_position, predicted_path)
     print(f'part 2: {part2}')
+    print(f"End time: {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))}")
+
 
