@@ -145,39 +145,6 @@ def find_path(grid: list[list[str]], obstacles: list[tuple[int, int]],
 
     return unique_places_visited
 
-def find_loop_obstacle_position(new_pivot_row: int, new_pivot_col: int, current_direction: str) -> tuple[int, int]:
-    """
-    Find the position of the new obstacle that will yield the new pivot point
-    """
-    if current_direction == 'N':
-        return new_pivot_row - 1, new_pivot_col
-    elif current_direction == 'S':
-        return new_pivot_row + 1, new_pivot_col
-    elif current_direction == 'E':
-        return new_pivot_row, new_pivot_col + 1
-    elif current_direction == 'W':
-        return new_pivot_row, new_pivot_col - 1
-
-
-def find_possible_loop_obstacles(positions_visited: set[tuple[int, int, str]],
-                                 current_direction: str, next_direction: str,
-                                 obstacles: list[tuple[int, int]],
-                                 obstacles_visited: set[tuple[int, int, str]]) -> set[tuple[int, int]]:
-    """
-    Between now and the next obstacle, count any positions where turning will lead to a prior obstacle
-    """
-    possible_loop_obstacles = set()
-    for (position_row, position_col, position_direction) in positions_visited:
-        next_obstacle = find_next_obstacle(position_row, position_col, next_direction, obstacles)
-        if next_obstacle is not None:
-            next_obstacle_row, next_obstacle_col = next_obstacle
-            if (next_obstacle_row, next_obstacle_col, next_direction) in obstacles_visited:
-                loop_obstacle = find_loop_obstacle_position(position_row, position_col, current_direction)
-                if loop_obstacle not in obstacles:  # Only consider new obstacles
-                    possible_loop_obstacles.add(loop_obstacle)
-
-    return possible_loop_obstacles
-
 def part2(grid: list[list[int]], obstacles: list[tuple[int, int]],
           starting_position: tuple[int, int], predicted_path: list[tuple[int, int]]) -> set[tuple[int, int]]:
     """
