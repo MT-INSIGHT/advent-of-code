@@ -2,65 +2,128 @@ import math
 import re
 from tqdm import tqdm
 
-def parse_input(filename: str) -> tuple[list[tuple[int, int]], list[tuple[int, int]], list[tuple[int, int]]]:
+def parse_input(filename: str) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
     """
     Parse the input
     """
-    a_buttons = []
-    b_buttons = []
-    prizes = []
+    robot_positions = []
+    robot_velocities = []
     with open(filename, 'r') as file:
-        data = file.read()
-        for machine in data.split('\n\n'):
-            button_a, button_b, prize = machine.split('\n')
-            a_x, a_y = [int(val) for val in re.findall('\d+', button_a)]
-            a_buttons.append((a_x, a_y))
-            b_x, b_y = [int(val) for val in re.findall('\d+', button_b)]
-            b_buttons.append((b_x, b_y))
-            prize_x, prize_y = [int(val) for val in re.findall('\d+', prize)]
-            prizes.append((prize_x, prize_y))
+        for robot in file:
+            [(px, py), (vx, vy)] = re.findall(r'(-?\d+),(-?\d+)', robot)
+            robot_positions.append((int(px), int(py)))
+            robot_velocities.append((int(vx), int(vy)))
+
+    return robot_positions, robot_velocities
 
 
-    return a_buttons, b_buttons, prizes
-
-
-def solve_system(a_button: tuple[int, int], b_button: tuple[int, int], prize: tuple[int, int]) -> tuple[float, float]:
+def move_robot(position: tuple[int, int], velocity: tuple[int, int], width: int, height: int) -> tuple[int, int]:
     """
-    Solve the system of equations for the intersection point
+    Move the robot according to its velocity, teleporting when it reaches a border
     """
-    lcm_a = math.lcm(a_button[0], a_button[1])
-    x_mult = lcm_a / a_button[0]
-    y_mult = lcm_a / a_button[1]
-    b = (prize[0] * x_mult - prize[1] * y_mult) / (b_button[0] * x_mult - b_button[1] * y_mult)
-    a = (prize[1] - b_button[1] * b) / a_button[1]
+    px, py = position
+    vx, vy = velocity
 
-    return (a, b)
+    new_px = (px + vx) % width
+    new_py = (py + vy) % height
+
+    return new_px, new_py
 
 
-def calculate_tokens(a_buttons: list[tuple[int, int]],
-                     b_buttons: list[tuple[int, int]],
-                     prizes: list[tuple[int, int]],
-                     prize_position_adder: int) -> int:
+def simulate_robot_movements(robot_positions: list[tuple[int, int]], robot_velocities: list[tuple[int, int]],
+                             width: int, height: int, seconds: int) -> list[tuple[int, int]]:
     """
-    Calculate the fewest tokens needed to win all possible prizes
+    Simulate the movement of the robots for the provided amount of time
     """
-    required_tokens = 0
-    for (a_button, b_button, prize) in zip(a_buttons, b_buttons, prizes):
-        adjusted_prize = (prize[0] + prize_position_adder, prize[1] + prize_position_adder)
-        a, b = solve_system(a_button=a_button, b_button=b_button, prize=adjusted_prize)
-        if int(a) == a and int(b) == b:  # Valid if solution has an integer number of button pushes
-            required_tokens += (3 * a + b)
+    for seconds_elapsed in range(seconds):
+        for index, (position, velocity) in enumerate(zip(robot_positions, robot_velocities)):
+            robot_positions[index] = move_robot(position=position, velocity=velocity, width=width, height=height)
 
-    return required_tokens
+    return robot_positions
+
+
+def count_robots_per_quadrant(robot_positions: list[tuple[int, int]], width: int, height: int) -> list[int]:
+    """
+    Count the number of robots in each quadrant
+    """
+    max_x = width - 1
+    max_y = height - 1
+
+    mid_x = max_x / 2
+    mid_y = max_y / 2
+
+    quadrant_counts = [0, 0, 0, 0]
+    for (px, py) in robot_positions:
+        if mid_x < px <= max_x and 0 <= py < mid_y:  # Quad 1
+            quadrant_counts[0] += 1
+        elif 0 <= px < mid_x and 0 <= py < mid_y:  # Quad 2
+            quadrant_counts[1] += 1
+        elif 0 <= px < mid_x and mid_y < py <= max_y:  # Quad 3
+            quadrant_counts[2] += 1
+        elif mid_x < px <= max_x and mid_y < py <= max_y: # Quad 4
+            quadrant_counts[3] += 1
+
+    return quadrant_counts
+
+
+def part1(robot_positions: list[tuple[int, int]], robot_velocities: list[tuple[int, int]],
+          width: int, height: int, seconds: int) -> int:
+    """
+    Calculate safety factor of the robots
+    """
+    final_positions = simulate_robot_movements(robot_positions=robot_positions, robot_velocities=robot_velocities,
+                                               width=width, height=height, seconds=seconds)
+    quadrant_counts = count_robots_per_quadrant(robot_positions=final_positions, width=width, height=height)
+    safety_factor = math.prod(quadrant_counts)
+
+    return safety_factor
+
+
+def christmas_tree_found(robot_positions: list[tuple[int, int]], width: int, height: int, seconds_elapsed: int) -> bool:
+    """
+    Find the seconds elapsed at the point that the Christmas tree is created
+    """
+    is_christmas_tree = False
+
+    # Populate grid
+    grid = [[' ' for _ in range(width)] for _ in range(height)]
+    for y, x in robot_positions:
+        grid[x][y] = '*'
+
+    # Identify Christmas tree iteration
+    for row in grid:
+        if '*********' in ''.join(row):  # Should include a bunch of asterisks in a row
+            is_christmas_tree = True
+
+    # Print seconds elapsed and the image
+    if is_christmas_tree:
+        print(seconds_elapsed)
+        for row in grid:
+            print(''.join(row))
+
+    return is_christmas_tree
+
+
+def part2(robot_positions: list[tuple[int, int]], robot_velocities: list[tuple[int, int]],
+          width: int, height: int, seconds: int) -> None:
+    """
+    Simulate the movement of the robots and print potential Christmas trees
+    """
+    for seconds_elapsed in range(1, seconds):
+        for index, (position, velocity) in enumerate(zip(robot_positions, robot_velocities)):
+            robot_positions[index] = move_robot(position=position, velocity=velocity, width=width, height=height)
+
+        if christmas_tree_found(robot_positions=robot_positions, width=width, height=height,
+                                seconds_elapsed=seconds_elapsed):
+            break
+
+    return
 
 
 if __name__ == '__main__':
-    a_buttons, b_buttons, prizes = parse_input('data/day13.txt')
+    positions, velocities = parse_input('data/day14.txt')
 
-    part_1 = calculate_tokens(a_buttons=a_buttons, b_buttons=b_buttons, prizes=prizes,
-                              prize_position_adder=0)
-    print(f'part 1: {part_1}')
+    part1 = part1(robot_positions=positions.copy(), robot_velocities=velocities, width=101, height=103, seconds=100)
+    print(f'part 1: {part1}')
 
-    part_2 = calculate_tokens(a_buttons=a_buttons, b_buttons=b_buttons, prizes=prizes,
-                              prize_position_adder=10000000000000)
-    print(f'part 2: {part_2}')
+    part2(robot_positions=positions.copy(), robot_velocities=velocities, width=101, height=103, seconds=10403)
